@@ -1,0 +1,392 @@
+/*
+ * University of Puerto Rico at Bayamon
+ * Department of Computer Science
+ * SICI 4028-LR1
+ * Vanessa M Rodriguez
+ * Ian Soto
+ * Pablo Rodriguez
+ * Daniel Viera
+ */
+
+package proyectoFinal;
+
+import java.awt.Color;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JRadioButton;
+import javax.swing.JTextField;
+import javax.swing.UIManager;
+
+public class Simplex_Method_App extends JFrame{
+
+	private JPanel panel;
+	private JTextField[] objFunVals;
+	private JTextField[][] consVals;
+	private JComboBox<String>[] box;
+	private String []inequalities = {"<=", ">="};
+	private JRadioButton maximum, minimum;
+	private JButton button;
+	
+	/**
+	 * Constructor of this class. 
+	 * @param var The number of variables
+	 * @param cons The number of constraints 
+	 */
+	private Simplex_Method_App(int var, int cons){
+		super.setTitle("Simplex Method App");
+		super.setSize(getWidth(var),300);
+		super.setLocationRelativeTo(null);
+		super.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		super.setResizable(false);
+		panel = new JPanel();
+		objectiveFunctionBuild(var); 
+		constraintBuild(var,cons);
+		buttonBuild(var,cons);
+		super.add(panel);
+		super.setVisible(true);
+	}
+	
+	/**
+	 * Method that return the width of the main dialog box depending on 
+	 * the input of the number of variables.
+	 * @param var The number of variables 
+	 * @return The width of the dialog box 
+	 */
+	private int getWidth(int var){
+		if(var == 1)
+			return 280;
+		else if(var == 2)
+			return 370;
+		else if(var == 3)
+			return 470;
+		else if(var == 4)
+			return 570;
+		else
+			return 670;
+	}
+	
+	/**
+	 * Construct the objective function panel. 
+	 * @param var The number of variables 
+	 */
+	private void objectiveFunctionBuild(int var){
+		panel.add(new JLabel("Objective Function = "));
+		objFunVals = new JTextField[var];
+		for(int idx = 0;idx<var;idx++){
+			objFunVals[idx] = new JTextField(5);
+			objFunVals[idx].setText("0");
+			panel.add(objFunVals[idx]);
+			panel.add(new JLabel("X"+(idx+1)+ (idx!=(var-1)?" + ":"")));
+		}
+	}
+	
+	/**
+	 * Construct the constraints panel. 
+	 * @param var The number of variables
+	 * @param cons The number of constraints 
+	 */
+	private void constraintBuild(int var,int cons){
+		consVals = new JTextField[cons][var + 1];
+		box = new JComboBox[cons];
+		
+		for(int row = 0; row<consVals.length;row++)
+			for(int col = 0; col<consVals[row].length;col++){
+				consVals[row][col] = new JTextField(5);
+				consVals[row][col].setText("0");
+			}
+		for(int row = 0;row<consVals.length;row++){
+			panel.add(new JLabel("Equation#"+(row+1)+" "));
+			for(int col = 0; col<consVals[row].length;col++){
+				if(col != consVals[row].length-1){
+					panel.add(consVals[row][col]);
+					panel.add(new JLabel("X"+(col+1)+ (col!=(var-1)?" + ":"")));
+				}else{
+					box[row] = new JComboBox<>(this.inequalities);
+					panel.add(box[row]);
+					panel.add(consVals[row][col]);
+				}
+			}	
+		}	
+	}
+	
+	/**
+	 * Construct the button panel. 
+	 */
+	private void buttonBuild(int var, int cons){
+		maximum = new JRadioButton("Max");
+		maximum.setSelected(true);
+		maximum.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				minimum.setSelected(false);
+			}
+		});
+		maximum.setBackground(Color.LIGHT_GRAY);
+		
+		minimum = new JRadioButton("Min");
+		minimum.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				maximum.setSelected(false);
+			}
+		});
+		minimum.setBackground(Color.LIGHT_GRAY);
+		
+		panel.add(maximum);
+		panel.add(minimum);
+		
+		button = new JButton("Solve");
+		buttonActionListener(var,cons);
+		panel.add(button);
+	}
+	
+	/**
+	 *
+	 * @param var
+	 * @param cons
+	 */
+	private void buttonActionListener(int var,int cons){
+		button.addActionListener(new ActionListener()
+			{
+				@Override
+				public void actionPerformed(ActionEvent arg0) {
+					if(!maximum.isSelected() && !minimum.isSelected()){
+						JOptionPane.showMessageDialog(null, "Type of simplex method not clicked!");
+					}
+					else{	
+						
+						boolean rightInequalitiesMinimumSolver = true;
+						
+						if(minimum.isSelected())
+							rightInequalitiesMinimumSolver = checkInequalitiesMinimumSolver();
+						
+						if(rightInequalitiesMinimumSolver){
+							try{
+								double [][] matrix = maximum.isSelected()?setMatrixMaximize(var,cons):
+															 setMatrixMinimize(var,cons);; 
+															 int[]rowControl = new int[cons];
+								showMatrix(matrix, var,cons);
+								do{
+									int minColIdx = pivotColumn(matrix);
+									if(matrix[matrix.length-1][minColIdx]>=0)
+										break;
+									int minRowIdx = pivotRow(matrix, minColIdx, rowControl);
+									simplify(matrix, minRowIdx, minColIdx);
+									twoZeroAndOneOne(matrix, minRowIdx, minColIdx);
+								}while(true);
+								showMatrix(matrix, var, cons);
+								showValues(matrix,var,cons);
+							}catch(Exception ex){
+								JOptionPane.showMessageDialog(null, "You have entered a letter!", 
+							"ERROR MESSAGE!", JOptionPane.ERROR_MESSAGE);
+							}
+						}else{
+							JOptionPane.showMessageDialog(null, "All inequalities must be >= "+
+												"to get a minimum cost solution!", 
+									"ERROR MESSAGE!", JOptionPane.ERROR_MESSAGE);
+						}
+					}// end else
+					
+				}
+
+			});
+	}
+	
+	private double[][]setMatrixMaximize(int var, int cons){
+		double[][] matrix = new double[cons + 1][var + cons + 2];
+		for(int row = 0; row<consVals.length;row++){
+			for(int col = 0; col<consVals[row].length;col++)
+				if(col!=consVals[row].length-1)
+					matrix[row][col] = Double.parseDouble(
+							consVals[row][col].getText());
+				else
+					matrix[row][matrix[row].length-1] = Double.parseDouble(
+							consVals[row][col].getText());
+		}
+		
+		for(int idx = 0;idx<objFunVals.length;idx++)
+			matrix[cons][idx] = -Double.parseDouble(objFunVals[idx].getText());
+		addOnes(matrix, var, cons);
+		return matrix;
+	}
+	
+	private double[][]setMatrixMinimize(int var, int cons){
+		double[][]matrix = new double[var + 1][var + cons + 2];
+		for(int rowT = 0,colT = 0,rowV = 0,colV = 0;rowV<consVals.length;){
+			matrix[rowT][colT] = 
+					(colV<consVals[0].length-1?1:-1)*Double.parseDouble(
+								consVals[rowV][colV].getText());
+			rowT++;
+			colV++;
+			if(colV>=consVals[0].length){
+				colV = 0;
+				rowT = 0;
+				rowV++;
+				colT++;
+			}
+		}
+		for(int idx = 0; idx<objFunVals.length;idx++)
+			matrix[idx][matrix[0].length-1] = Double.parseDouble(
+					objFunVals[idx].getText());
+		addOnes(matrix, cons,var);
+		return matrix;
+	}
+	
+	
+	private void addOnes(double[][]matrix, int var, int cons){
+		for(int row = 0, col = var; row<matrix.length; row++,col++)
+			if(row>=matrix.length-1 && minimum.isSelected());
+			else
+				matrix[row][col] = 1;
+	}
+	
+	private int pivotColumn(double[][]table){
+		int minIdx = 0;
+		for(int col = 1;col<table[0].length;col++)
+			if(table[table.length-1][col] < table[table.length-1][minIdx])
+				minIdx = col;
+		return minIdx;
+	}
+	
+	private int pivotRow(double[][]table, int minColIdx, int[] rowControl){
+		int minRowIdx = 0;
+		double x = table[minRowIdx][minColIdx]!=0?
+				(table[minRowIdx][table[minRowIdx].length - 1]
+				/table[minRowIdx][minColIdx])
+						:Double.MAX_VALUE;
+		for(int row = 1;row<table.length - 1;row++){
+			double d = table[row][minColIdx]!=0?
+					(table[row][table[row].length - 1]/table[row][minColIdx]) : 
+						Double.MAX_VALUE;
+			if(d<x){
+				x = d;
+				minRowIdx = row;
+			}
+		}
+		return minRowIdx;
+	}
+	
+	private void simplify(double[][] matrix, int row, int colSelMin){
+		double num = matrix[row][colSelMin];
+		for(int col = 0; col<matrix[row].length; col++)
+			matrix[row][col] = (matrix[row][col])/num;
+	}
+	
+	private void twoZeroAndOneOne(double [][]arr, int count, int colSelMin){
+		for(int row = 0; row<arr.length; row++)
+			if(row != count){
+				double num = arr[row][colSelMin];
+				for(int col = 0; col < arr[row].length; col++)
+					arr[row][col] -= num*arr[count][col];
+			}
+	}
+	
+	private void showMatrix(double[][] matrix, int var, int cons){
+		StringBuilder str = new StringBuilder();
+		
+		int newVar = maximum.isSelected()?var:cons;
+		int newCons = maximum.isSelected()?cons:var;
+		
+		for(int ctr = 0;ctr<newVar;ctr++)
+			str.append("   X"+(ctr+1)+"   ");
+		for(int ctr = 0;ctr<newCons;ctr++)
+			str.append("   S"+(ctr+1)+"   ");
+		str.append("    "+(maximum.isSelected()?"P":"C"));
+		str.append("\n");
+		
+		for(int row = 0; row<matrix.length;row++){
+			for(int col = 0; col<matrix[row].length;col++)
+				str.append(String.format("%,.2f", matrix[row][col]) + "   ");
+			str.append("\n");
+		}
+		JOptionPane.showMessageDialog(null, str);
+	}
+	
+	private void showValues(double[][]table, int var, int cons){
+		StringBuilder str = new StringBuilder();
+		boolean t = true;
+		double value = 0;
+		if(maximum.isSelected()){
+			for(int col = 0;col<var;col++){
+				t = true;
+				value = 0;
+				for(int row = 0;row<table.length && t;row++){
+					if(table[row][col]!=0&&table[row][col]!=1){
+						t = false;
+						value = 0;
+					}
+					else{
+						if(table[row][col]==1)
+							value = table[row][table[row].length-1];
+					}	
+				}
+				str.append("X"
+						+ (col+1)+" = "+String.format("%,.2f", value) + "\n");
+			}
+		}
+		else{
+			for(int ctr = cons,i=1; ctr<cons+var;ctr++,i++)
+				str.append("X" + (i)+" = "+String.format("%,.2f",
+						table[table.length-1][ctr]) + "\n");
+		}
+		str.append(String.format(
+				(maximum.isSelected()?"P":"C")
+				+" = %,.2f", table[table.length-1][table[0].length-1]));
+		JOptionPane.showMessageDialog(null, str);
+		
+	}
+	
+	private boolean checkInequalitiesMinimumSolver(){
+		boolean t = true;
+		for(int idx = 0;idx<box.length;idx++)
+			if(box[idx].getSelectedItem().equals(inequalities[0])){
+				t = false;
+				break;
+			}
+		return t;
+	}
+	
+	
+	/**
+	 * The starting point of the application. 
+	 * @param args
+	 */
+	public static void main(String[] args) {
+		UIManager.put("OptionPane.background",Color.LIGHT_GRAY);
+		UIManager.put("Panel.background", Color.LIGHT_GRAY);
+		UIManager.put("Button.background",Color.WHITE);
+		int var = getNumber("Enter the number of variables between 1 to 5",5);
+		int cons = getNumber("Enter the number of constraints between 1 to 7",7);
+		new Simplex_Method_App(var,cons);
+	}
+	
+	/**
+	 * Method that returns the number of variables or constraints 
+	 * that the user wants to use. 
+	 * @param str The string to be shown in the dialog box
+	 * @param max The maximum number of variables or constraints to be use. 
+	 */
+	private static int getNumber(String str, int max){
+		int num = 0;
+		do{
+			try{
+				String numberStr = JOptionPane.showInputDialog(str);
+				if(numberStr == null)
+					System.exit(0);
+				else
+					num = Integer.parseInt(numberStr);
+			}catch(Exception ex){
+				JOptionPane.showMessageDialog(null, ex.getMessage(), 
+						"ERROR MESSAGE!", JOptionPane.ERROR_MESSAGE);
+				continue;
+			}
+		}while(num<1 || num>max);
+		return num;
+	}
+}
